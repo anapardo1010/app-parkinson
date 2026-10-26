@@ -3,7 +3,7 @@ import { Pressable, Switch, Text, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import { Icono } from '@/components/Icono';
 import { Boton, Cuerpo, Enlace, Pantalla, Secundario, Titulo } from '@/components/ui';
-import { registrarConsentimiento } from '@/data/repositorio';
+import { primerosPasos, registrarConsentimiento } from '@/data/repositorio';
 import { useSesion } from '@/session/Sesion';
 import { colores, espacio, fuentes } from '@/theme';
 
@@ -20,6 +20,11 @@ export default function Consentimiento() {
     await registrarConsentimiento(db, contexto.usuarioId, null, 'aviso_privacidad', true);
     // La participación en investigación la decide solo el paciente, y siempre por separado.
     if (esPaciente && acceso) await registrarConsentimiento(db, contexto.usuarioId, acceso.pacienteId, 'investigacion', investigacion);
+    // Primer uso: antes de entrar, el cuestionario para conocer a la persona (se puede omitir).
+    if (esPaciente && acceso && !(await primerosPasos(db, contexto.usuarioId, acceso.pacienteId)).perfil) {
+      router.replace('/cuestionario/perfil-inicial?inicio=1');
+      return;
+    }
     router.replace('/hoy');
   };
 

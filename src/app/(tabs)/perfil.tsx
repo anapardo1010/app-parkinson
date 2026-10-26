@@ -106,10 +106,10 @@ export default function Perfil() {
       <View style={{ marginTop: espacio.xl, gap: 4 }}>
         <Etiqueta>Demo</Etiqueta>
         <View style={{ borderTopWidth: 1, borderColor: colores.borde }}>
-          <Fila titulo="Entrar como otra persona" detalle="María, Juan o Laura" onPress={() => { salir(); router.replace('/entrar'); }} />
+          <Fila titulo="Entrar como otra persona" detalle="Rosa, María, Juan o Laura" onPress={() => { salir(); router.replace('/entrar'); }} />
           <Fila
             titulo="Reiniciar la demo"
-            detalle="Vuelve a cargar los datos ficticios"
+            detalle="Vuelve a cargar los datos ficticios; Rosa vuelve a estar recién instalada"
             onPress={() =>
               confirmar('Reiniciar la demo', 'Se borrarán los registros hechos en este dispositivo y se cargarán de nuevo los datos ficticios.', 'Reiniciar', async () => {
                 await reiniciarDemo();

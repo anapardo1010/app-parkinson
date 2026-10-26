@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { InsigniaQuien } from '@/components/Encabezado';
-import { Pantalla, Secundario, Segmentos, Titulo } from '@/components/ui';
+import { Boton, Pantalla, Secundario, Segmentos, Titulo } from '@/components/ui';
 import { citasProximas, tratamientoActual } from '@/data/repositorio';
 import { aFecha, fechaLarga, horaLegible } from '@/lib/fechas';
-import { useDatos } from '@/session/Sesion';
+import { useDatos, useSesion } from '@/session/Sesion';
 import { colores, espacio, fuentes } from '@/theme';
 
 export default function Tratamiento() {
+  const { acceso } = useSesion();
   const [seccion, setSeccion] = useState<'medicamentos' | 'citas'>('medicamentos');
   const datos = useDatos(async (db, u, p) => ({
     tratamiento: await tratamientoActual(db, u, p),
@@ -48,13 +50,26 @@ export default function Tratamiento() {
               <Secundario>{[c.medico, c.lugar].filter(Boolean).join(' · ')}</Secundario>
             </View>
           ))}
+        {seccion === 'medicamentos' && datos?.tratamiento.length === 0 && (
+          <Secundario style={{ paddingVertical: espacio.m }}>Aún no hay medicamentos. Agréguelos para recibir recordatorios.</Secundario>
+        )}
         {seccion === 'citas' && datos?.citas.length === 0 && (
           <Secundario style={{ paddingVertical: espacio.m }}>No hay citas próximas.</Secundario>
         )}
       </View>
 
+      {acceso?.puedeRegistrar && (
+        <View style={{ marginTop: espacio.l }}>
+          {seccion === 'medicamentos' ? (
+            <Boton variante="contorno" icono="mas" texto="Agregar medicamento" onPress={() => router.push('/medicamento/nuevo')} />
+          ) : (
+            <Boton variante="contorno" icono="mas" texto="Agregar cita" onPress={() => router.push('/cita/nueva')} />
+          )}
+        </View>
+      )}
+
       <Secundario style={{ marginTop: 'auto', paddingTop: espacio.xl, fontSize: 15 }}>
-        Los cambios en su tratamiento los indica su médico. En la demo, el tratamiento ya viene cargado.
+        Los cambios en su tratamiento los indica su médico.
       </Secundario>
     </Pantalla>
   );

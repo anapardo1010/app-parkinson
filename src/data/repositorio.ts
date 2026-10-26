@@ -14,7 +14,7 @@ import { fechaISO, sumarDias } from '@/lib/fechas';
 import { huella, nuevoId } from '@/lib/id';
 import type { Db } from './db/tipos';
 import { ESQUEMA_V1 } from './esquema';
-import { cargarInstrumentos, insertar, sembrarDatosDemo } from './semilla';
+import { cargarInstrumentos, DEMO, insertar, sembrarDatosDemo, sembrarPrimerUso } from './semilla';
 
 /**
  * Acceso a datos. Cada función que toca datos de salud verifica primero los permisos,
@@ -34,6 +34,12 @@ export async function prepararBase(db: Db) {
   } else {
     // Los cuestionarios se recargan siempre: si un especialista sube una versión nueva, entra sola.
     await db.transaccion(() => cargarInstrumentos(db));
+  }
+  const version = (await db.primero<{ user_version: number }>('PRAGMA user_version'))?.user_version ?? 0;
+  if (version < 2) {
+    // Versión 2: persona de "primer uso". Se agrega también a las bases que ya existían.
+    await db.transaccion(() => sembrarPrimerUso(db));
+    await db.ejecutar('PRAGMA user_version = 2');
   }
   const pacientes = await db.todos<{ id: string }>('SELECT id FROM paciente WHERE eliminado_en IS NULL');
   for (const p of pacientes) await asegurarDosis(db, p.id, new Date(), 2);
@@ -119,7 +125,7 @@ export async function contextoDeUsuario(db: Db, usuarioId: string): Promise<Cont
   };
 }
 
-export type UsuarioDemo = { id: string; nombre: string; descripcion: string };
+export type UsuarioDemo = { id: string; nombre: string; descripcion: string; grupo: 'primer_uso' | 'con_historial'; esPaciente: boolean };
 
 export async function usuariosDemo(db: Db): Promise<UsuarioDemo[]> {
   const usuarios = await db.todos<{ id: string; nombre: string }>('SELECT id, nombre FROM usuario WHERE eliminado_en IS NULL ORDER BY creado_en, id');
@@ -127,14 +133,17 @@ export async function usuariosDemo(db: Db): Promise<UsuarioDemo[]> {
   for (const u of usuarios) {
     const ctx = await contextoDeUsuario(db, u.id);
     const acceso = ctx.pacientes[0];
+    const primerUso = u.id === DEMO.rosa;
     const descripcion = !acceso
       ? 'Sin pacientes vinculados'
       : acceso.rol === 'paciente'
-        ? 'Persona con Parkinson'
+        ? primerUso ? 'Persona con Parkinson · acaba de instalar la app' : 'Persona con Parkinson · 30 días de uso'
         : `Acompaña a ${acceso.nombre} · ${acceso.permiso === 'ver_registrar' ? 'ver y registrar' : 'solo ver'}`;
-    lista.push({ id: u.id, nombre: u.nombre, descripcion });
+    lista.push({
+      id: u.id, nombre: u.nombre, descripcion, grupo: primerUso ? 'primer_uso' : 'con_historial', esPaciente: acceso?.rol === 'paciente',
+    });
   }
-  return lista.sort((a, b) => Number(b.descripcion === 'Persona con Parkinson') - Number(a.descripcion === 'Persona con Parkinson'));
+  return lista.sort((a, b) => Number(b.esPaciente) - Number(a.esPaciente));
 }
 
 /* ============ Consentimientos ============ */
@@ -183,9 +192,11 @@ export async function asegurarDosis(db: Db, pacienteId: string, desde: Date, dia
     const fecha = fechaISO(dia);
     for (const h of horarios) {
       if (!h.dias_semana.includes(String(dia.getDay()))) continue;
-      if (h.fecha_inicio > fecha || (h.fecha_fin && h.fecha_fin < fecha)) continue;
+      const programada = `${fecha}T${h.hora}`;
+      // fecha_inicio puede traer hora: un tratamiento agregado a las 10:30 no genera la dosis de las 8:00 de ese día.
+      if (programada < h.fecha_inicio || (h.fecha_fin && h.fecha_fin < fecha)) continue;
       await insertar(db, 'dosis_programada', {
-        id: `dos-${h.id}-${fecha}`, paciente_id: pacienteId, horario_toma_id: h.id, fecha_hora_programada: `${fecha}T${h.hora}`,
+        id: `dos-${h.id}-${fecha}`, paciente_id: pacienteId, horario_toma_id: h.id, fecha_hora_programada: programada,
       });
     }
   }
@@ -274,13 +285,13 @@ export async function motivosOmision(db: Db) {
 
 /* ============ Tratamiento y citas ============ */
 
-export type Tratamiento = { id: string; medicamento: string; presentacion: string | null; cantidad: number; unidad: string; horas: string[] };
+export type Tratamiento = { id: string; medicamentoId: string; medicamento: string; presentacion: string | null; cantidad: number; unidad: string; horas: string[] };
 
 export async function tratamientoActual(db: Db, usuarioId: string, pacienteId: string): Promise<Tratamiento[]> {
   await exigir(db, usuarioId, pacienteId, 'ver');
   const hoy = fechaISO(new Date());
   const prescripciones = await db.todos<Omit<Tratamiento, 'horas'>>(
-    `SELECT p.id, m.nombre_generico AS medicamento, m.presentacion, p.dosis_cantidad AS cantidad, p.unidad_codigo AS unidad
+    `SELECT p.id, p.medicamento_id AS medicamentoId, m.nombre_generico AS medicamento, m.presentacion, p.dosis_cantidad AS cantidad, p.unidad_codigo AS unidad
        FROM prescripcion p JOIN medicamento m ON m.id = p.medicamento_id
       WHERE p.paciente_id = ? AND p.eliminado_en IS NULL AND (p.fecha_fin IS NULL OR p.fecha_fin >= ?)
       ORDER BY m.nombre_generico`,
@@ -293,17 +304,80 @@ export async function tratamientoActual(db: Db, usuarioId: string, pacienteId: s
   return prescripciones.map((p) => ({ ...p, horas: horarios.filter((h) => h.prescripcion_id === p.id).map((h) => h.hora) }));
 }
 
-export type Cita = { id: string; especialidad: string; medico: string | null; lugar: string | null; fecha_hora: string };
+export type Cita = { id: string; especialidadCodigo: string | null; especialidad: string; medico: string | null; lugar: string | null; fecha_hora: string };
 
 export async function citasProximas(db: Db, usuarioId: string, pacienteId: string): Promise<Cita[]> {
   await exigir(db, usuarioId, pacienteId, 'ver');
   return db.todos<Cita>(
-    `SELECT c.id, e.etiqueta AS especialidad, c.medico, c.lugar, c.fecha_hora
+    `SELECT c.id, c.especialidad_codigo AS especialidadCodigo, e.etiqueta AS especialidad, c.medico, c.lugar, c.fecha_hora
        FROM cita c LEFT JOIN especialidad e ON e.codigo = c.especialidad_codigo
       WHERE c.paciente_id = ? AND c.eliminado_en IS NULL AND c.fecha_hora >= ?
       ORDER BY c.fecha_hora`,
     [pacienteId, fechaISO(new Date())],
   );
+}
+
+export type Opcion = { codigo: string; etiqueta: string };
+export type MedicamentoCatalogo = { id: string; nombre: string; presentacion: string | null };
+
+export async function catalogoMedicamentos(db: Db) {
+  return db.todos<MedicamentoCatalogo>(
+    'SELECT id, nombre_generico AS nombre, presentacion FROM medicamento WHERE eliminado_en IS NULL ORDER BY nombre_generico',
+  );
+}
+
+export async function opcionesDe(db: Db, catalogo: 'unidad_dosis' | 'especialidad') {
+  return db.todos<Opcion>(`SELECT codigo, etiqueta FROM ${catalogo} WHERE activo = 1 ORDER BY orden`);
+}
+
+export type PrescripcionNueva = { medicamentoId: string; cantidad: number; unidad: string; horas: string[] };
+
+/** Agrega un medicamento con sus horarios. Las dosis empiezan a contar desde este momento. */
+export async function agregarPrescripcion(db: Db, usuarioId: string, pacienteId: string, p: PrescripcionNueva) {
+  await exigir(db, usuarioId, pacienteId, 'registrar');
+  if (!p.horas.length) throw new Error('Elija al menos un horario');
+  const id = nuevoId();
+  await db.transaccion(async () => {
+    await insertar(db, 'prescripcion', {
+      id, paciente_id: pacienteId, medicamento_id: p.medicamentoId, dosis_cantidad: p.cantidad, unidad_codigo: p.unidad,
+      fecha_inicio: localAhora(), registrado_por: usuarioId,
+    });
+    for (const hora of Array.from(new Set(p.horas)).sort()) {
+      await insertar(db, 'horario_toma', { id: nuevoId(), paciente_id: pacienteId, prescripcion_id: id, hora });
+    }
+    await bitacora(db, usuarioId, pacienteId, 'crear', 'prescripcion', id);
+  });
+  await asegurarDosis(db, pacienteId, new Date(), 2);
+  return id;
+}
+
+export type CitaNueva = { especialidad: string; fechaHora: string; medico: string | null; lugar: string | null };
+
+export async function agregarCita(db: Db, usuarioId: string, pacienteId: string, c: CitaNueva) {
+  await exigir(db, usuarioId, pacienteId, 'registrar');
+  const id = nuevoId();
+  await insertar(db, 'cita', {
+    id, paciente_id: pacienteId, especialidad_codigo: c.especialidad, medico: c.medico || null, lugar: c.lugar || null,
+    fecha_hora: c.fechaHora, recordatorio_minutos: 1440, registrado_por: usuarioId,
+  });
+  await bitacora(db, usuarioId, pacienteId, 'crear', 'cita', id);
+  return id;
+}
+
+export type PrimerosPasos = { perfil: boolean; medicamentos: boolean; cita: boolean };
+
+/** Lo que falta para que la app le sea útil a una persona que acaba de instalarla. */
+export async function primerosPasos(db: Db, usuarioId: string, pacienteId: string): Promise<PrimerosPasos> {
+  await exigir(db, usuarioId, pacienteId, 'ver');
+  const cuenta = async (sql: string) => ((await db.primero<{ n: number }>(sql, [pacienteId]))?.n ?? 0) > 0;
+  return {
+    perfil: await cuenta(
+      `SELECT COUNT(*) AS n FROM aplicacion a JOIN instrumento i ON i.id = a.instrumento_id
+        WHERE a.paciente_id = ? AND i.codigo = 'perfil-inicial' AND a.eliminado_en IS NULL`,
+    ),
+    medicamentos: await cuenta('SELECT COUNT(*) AS n FROM prescripcion WHERE paciente_id = ? AND eliminado_en IS NULL'),
+    cita: await cuenta('SELECT COUNT(*) AS n FROM cita WHERE paciente_id = ? AND eliminado_en IS NULL'),
+  };
 }
 
 /* ============ Cuestionarios ============ */

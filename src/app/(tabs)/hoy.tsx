@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { InsigniaQuien } from '@/components/Encabezado';
+import { Icono } from '@/components/Icono';
 import { BarraProgreso } from '@/components/graficas';
 import { Boton, Cuerpo, Enlace, Etiqueta, Pantalla, Secundario, Titulo } from '@/components/ui';
 import {
@@ -11,6 +12,8 @@ import {
   dosisEnRango,
   guardarAplicacion,
   instrumentoActivo,
+  primerosPasos,
+  PrimerosPasos,
   registrarToma,
 } from '@/data/repositorio';
 import { fueTomada } from '@/features/adherencia/calculo';
@@ -26,13 +29,14 @@ export default function Hoy() {
   const fuente = acceso?.rol === 'paciente' ? 'paciente' : 'observado';
 
   const datos = useDatos(async (db, usuarioId, pacienteId) => {
-    const [dosis, animo, cita] = await Promise.all([
-      dosisEnRango(db, usuarioId, pacienteId, hoy, fechaISO(sumarDias(ahora, 1))),
+    const [dosis, animo, cita, pasos] = await Promise.all([
+      dosisEnRango(db, usuarioId, pacienteId, hoy, fechaISO(sumarDias(ahora, 2))),
       instrumentoActivo(db, 'animo-diario'),
       citasProximas(db, usuarioId, pacienteId),
+      primerosPasos(db, usuarioId, pacienteId),
     ]);
     const animoHoy = await aplicacionDelDia(db, usuarioId, pacienteId, 'animo-diario', hoy, fuente);
-    return { dosis, animo, animoHoy, cita: cita[0] ?? null };
+    return { dosis, animo, animoHoy, cita: cita[0] ?? null, pasos };
   }, [fuente]);
 
   useEffect(() => {
@@ -43,9 +47,15 @@ export default function Hoy() {
 
   if (!contexto || !acceso) return null;
 
-  const dosis = datos?.dosis ?? [];
+  const todas = datos?.dosis ?? [];
+  const dosis = todas.filter((d) => d.programada.startsWith(hoy));
   const pendientes = dosis.filter((d) => !d.estado);
   const proxima = pendientes[0] ?? null;
+  // Si ya no quedan dosis hoy (o el tratamiento se agregó tarde), se muestra la primera de mañana.
+  const deManana = proxima ? null : todas.find((d) => !d.programada.startsWith(hoy) && !d.estado) ?? null;
+  const pasos = datos?.pasos;
+  const sinTratamiento = pasos ? !pasos.medicamentos : false;
+  const mostrarPasos = !!pasos && acceso.puedeRegistrar && !(pasos.perfil && pasos.medicamentos && pasos.cita);
   const mismaHora = proxima ? pendientes.filter((d) => d.programada === proxima.programada).length - 1 : 0;
   const tomadas = dosis.filter(fueTomada).length;
   const atrasada = proxima ? proxima.programada < fechaHoraISO(ahora) : false;
@@ -81,9 +91,12 @@ export default function Hoy() {
           <Titulo>{`${saludo(ahora)}, ${nombre}`}</Titulo>
         </View>
 
+        {mostrarPasos && pasos && <ListaPrimerosPasos pasos={pasos} esPaciente={acceso.rol === 'paciente'} />}
+
         {/* Próxima dosis */}
+        {!sinTratamiento && (
         <View style={{ gap: 6 }}>
-          <Etiqueta>{proxima ? (atrasada ? 'Dosis pendiente' : 'Próxima dosis') : 'Dosis de hoy'}</Etiqueta>
+          <Etiqueta>{proxima ? (atrasada ? 'Dosis pendiente' : 'Próxima dosis') : deManana ? 'Próxima dosis' : 'Dosis de hoy'}</Etiqueta>
           {proxima ? (
             <>
               <Text style={{ fontFamily: fuentes.tituloMedio, fontSize: 28, color: colores.texto, letterSpacing: -0.3 }}>
@@ -106,10 +119,19 @@ export default function Hoy() {
                 )}
               </View>
             </>
+          ) : deManana ? (
+            <>
+              <Text style={{ fontFamily: fuentes.tituloMedio, fontSize: 28, color: colores.texto, letterSpacing: -0.3 }}>
+                {deManana.medicamento}
+              </Text>
+              <Cuerpo style={{ color: colores.textoSecundario }}>{`Mañana a las ${horaLegible(deManana.programada)}`}</Cuerpo>
+              {dosis.length === 0 && <Secundario>Hoy ya no hay dosis. Le recordaremos a la hora.</Secundario>}
+            </>
           ) : (
             <Cuerpo>No quedan dosis pendientes por hoy.</Cuerpo>
           )}
         </View>
+        )}
 
         {/* Ánimo del día: lo define el instrumento configurable animo-diario */}
         {preguntaAnimo && (
@@ -160,6 +182,7 @@ export default function Hoy() {
       </View>
 
       {/* Avance del día */}
+      {dosis.length > 0 && (
       <View style={{ marginTop: 'auto', paddingTop: espacio.xl, gap: 10 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Cuerpo style={{ fontSize: 17 }}>
@@ -169,6 +192,7 @@ export default function Hoy() {
         </View>
         <BarraProgreso fraccion={dosis.length ? tomadas / dosis.length : 0} />
       </View>
+      )}
 
     </Pantalla>
       {deshacer && (
@@ -193,6 +217,56 @@ export default function Hoy() {
           </Pressable>
         </View>
       )}
+    </View>
+  );
+}
+
+/** Lista de primeros pasos para quien acaba de instalar la app. Desaparece al completarla. */
+function ListaPrimerosPasos({ pasos, esPaciente }: { pasos: PrimerosPasos; esPaciente: boolean }) {
+  const elementos = [
+    { listo: pasos.perfil, titulo: 'Conocerle mejor', detalle: 'Tres preguntas sobre usted', ruta: '/cuestionario/perfil-inicial' },
+    { listo: pasos.medicamentos, titulo: esPaciente ? 'Agregar sus medicamentos' : 'Agregar medicamentos', detalle: 'Para recibir recordatorios', ruta: '/medicamento/nuevo' },
+    { listo: pasos.cita, titulo: esPaciente ? 'Agregar su próxima cita' : 'Agregar la próxima cita', detalle: 'Para tenerla a la mano', ruta: '/cita/nueva' },
+  ];
+  const hechos = elementos.filter((e) => e.listo).length;
+  return (
+    <View style={{ gap: 6 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <Etiqueta>Primeros pasos</Etiqueta>
+        <Secundario style={{ fontSize: 15 }}>{`${hechos} de ${elementos.length} listos`}</Secundario>
+      </View>
+      <Text style={{ fontFamily: fuentes.tituloMedio, fontSize: 24, color: colores.texto, letterSpacing: -0.3, marginBottom: 6 }}>
+        {pasos.medicamentos ? 'Ya casi termina' : 'Empecemos por su tratamiento'}
+      </Text>
+      <View style={{ borderTopWidth: 1, borderColor: colores.borde }}>
+        {elementos.map((e) => (
+          <Pressable
+            key={e.ruta}
+            accessibilityRole="button"
+            accessibilityLabel={`${e.titulo}. ${e.listo ? 'Listo' : 'Pendiente'}`}
+            disabled={e.listo}
+            onPress={() => router.push(e.ruta as never)}
+            style={({ pressed }) => ({
+              minHeight: 72, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 14,
+              borderBottomWidth: 1, borderColor: colores.borde, opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <View
+              style={{
+                width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+                borderWidth: e.listo ? 0 : 1.5, borderColor: colores.bordeFuerte, backgroundColor: e.listo ? colores.verde : 'transparent',
+              }}
+            >
+              {e.listo && <Icono nombre="check" tamano={18} color={colores.blanco} grosor={2.4} />}
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ fontFamily: fuentes.textoMedio, fontSize: 18, color: e.listo ? colores.textoSecundario : colores.texto }}>{e.titulo}</Text>
+              <Secundario style={{ fontSize: 15 }}>{e.listo ? 'Listo' : e.detalle}</Secundario>
+            </View>
+            {!e.listo && <Icono nombre="adelante" tamano={20} color={colores.coralTexto} />}
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }

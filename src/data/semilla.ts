@@ -178,6 +178,9 @@ export const DEMO = {
   juan: 'usr-juan',
   laura: 'usr-laura',
   paciente: 'pac-maria',
+  /** Persona que estrena la app: sin tratamiento, citas ni consentimientos. */
+  rosa: 'usr-rosa',
+  pacienteNuevo: 'pac-rosa',
 } as const;
 
 const HORARIOS: { prescripcion: string; horas: string[] }[] = [
@@ -372,6 +375,33 @@ export async function sembrarDatosDemo(db: Db, hoy = new Date()) {
     await insertar(db, 'contacto_directorio', {
       id, categoria_codigo: categoria, nombre, horario, telefono: null, estado_codigo: 'CDMX',
       verificado_en: null, estado_publicacion: 'publicado',
+    });
+  }
+}
+
+/**
+ * Persona de "primer uso" (desde la versión 2 de la base). Sin consentimientos, sin tratamiento
+ * y sin citas: sirve para enseñar cómo se ve la app al instalarla.
+ * También agrega el cuestionario inicial de María, que en su historia ya contestó.
+ */
+export async function sembrarPrimerUso(db: Db, hoy = new Date()) {
+  await insertar(db, 'usuario', { id: DEMO.rosa, auth_id: 'demo-rosa', nombre: 'Rosa Hernández', correo: 'rosa@ejemplo.demo' });
+  await insertar(db, 'paciente', {
+    id: DEMO.pacienteNuevo, usuario_id: DEMO.rosa, nombre_preferido: 'Rosa', anio_nacimiento: 1952, sexo: 'F', estado_codigo: 'PUE',
+  });
+
+  const perfil = idInstrumento('perfil-inicial', 1);
+  const aplicacionId = 'apl-perfil-maria';
+  await insertar(db, 'aplicacion', {
+    id: aplicacionId, instrumento_id: perfil, paciente_id: DEMO.paciente, registrado_por: DEMO.maria, fuente: 'paciente',
+    completado_en: `${fechaISO(sumarDias(hoy, -90))}T12:00`, puntaje: null,
+  });
+  // Opciones elegidas: "De 1 a 5 años", "Un familiar", "3 o 4"
+  for (const [i, opcion] of [2, 2, 2].entries()) {
+    const pregunta = idPregunta(perfil, i + 1);
+    await insertar(db, 'respuesta', {
+      id: `${aplicacionId}-r${i + 1}`, paciente_id: DEMO.paciente, aplicacion_id: aplicacionId,
+      pregunta_id: pregunta, opcion_id: idOpcion(pregunta, opcion), valor_numerico: [1, 1, 3][i],
     });
   }
 }

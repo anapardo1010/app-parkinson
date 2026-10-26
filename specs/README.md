@@ -17,3 +17,4 @@ Todo spec respeta `docs/constitucion.md`.
 | 005 Inicio de sesión y sincronización con Supabase | Pendiente |
 | 006 Reporte para el médico | Pendiente |
 | 007 Exportación para investigación | Fase futura |
+| 008 Primer uso | Implementado en la demo |

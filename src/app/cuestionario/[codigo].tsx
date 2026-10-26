@@ -11,7 +11,10 @@ import { colores, espacio, fuentes } from '@/theme';
  * Una pregunta por pantalla. Cuando los especialistas definan sus escalas, esta pantalla no cambia.
  */
 export default function Cuestionario() {
-  const { codigo } = useLocalSearchParams<{ codigo: string }>();
+  const { codigo, inicio } = useLocalSearchParams<{ codigo: string; inicio?: string }>();
+  // inicio=1: viene del registro; al terminar (u omitir) se entra a la app.
+  const alEntrar = inicio === '1';
+  const salir = () => (alEntrar ? router.replace('/hoy') : router.back());
   const { db, contexto, acceso, refrescar } = useSesion();
   const [inst, setInst] = useState<InstrumentoBD | null>(null);
   const [indice, setIndice] = useState(0);
@@ -32,7 +35,7 @@ export default function Cuestionario() {
     if (!db) return;
     await guardarAplicacion(db, contexto.usuarioId, acceso.pacienteId, inst.id, Object.values(respuestas));
     refrescar();
-    router.back();
+    salir();
   };
 
   const valoresEscala =
@@ -42,13 +45,25 @@ export default function Cuestionario() {
 
   return (
     <Pantalla sinPestanas>
-      <Enlace texto={indice === 0 ? 'Salir' : 'Atrás'} icono="atras" onPress={() => (indice === 0 ? router.back() : setIndice(indice - 1))} />
+      {alEntrar && indice === 0 ? (
+        <View style={{ alignItems: 'flex-end' }}>
+          <Enlace texto="Omitir por ahora" onPress={salir} />
+        </View>
+      ) : (
+        <Enlace texto={indice === 0 ? 'Salir' : 'Atrás'} icono="atras" onPress={() => (indice === 0 ? salir() : setIndice(indice - 1))} />
+      )}
+      {alEntrar && indice === 0 && (
+        <View style={{ gap: 6, marginTop: espacio.s, marginBottom: espacio.m }}>
+          <Titulo style={{ fontSize: 28 }}>Le damos la bienvenida</Titulo>
+          <Secundario>{`Antes de empezar, ${inst.preguntas.length} preguntas para conocerle. Puede contestarlas después.`}</Secundario>
+        </View>
+      )}
       <View style={{ gap: 10, marginTop: espacio.s }}>
         <Etiqueta>{`${inst.nombre} · pregunta ${indice + 1} de ${inst.preguntas.length}`}</Etiqueta>
         <View style={{ height: 4, borderRadius: 2, backgroundColor: colores.borde }}>
           <View style={{ height: 4, borderRadius: 2, width: `${((indice + 1) / inst.preguntas.length) * 100}%`, backgroundColor: colores.coralBoton }} />
         </View>
-        <Titulo style={{ marginTop: espacio.m }}>{pregunta.texto}</Titulo>
+        <Titulo style={{ marginTop: espacio.m, fontSize: alEntrar ? 26 : undefined, lineHeight: alEntrar ? 33 : undefined }}>{pregunta.texto}</Titulo>
       </View>
 
       {pregunta.tipo === 'escala' && (

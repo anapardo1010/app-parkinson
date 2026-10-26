@@ -23,7 +23,7 @@ También puedes verla en el navegador con `npx expo start --web`.
 
 | Pantalla | Qué muestra |
 | --- | --- |
-| Bienvenida → Entrar | Selector para entrar como María (paciente), Juan (acompañante, ver y registrar) o Laura (acompañante, solo ver) |
+| Bienvenida → Entrar | Selector con dos historias: **primer uso** (Rosa, recién instalada: cuestionario inicial, app casi vacía y formularios prellenados para agregar medicamentos y citas) y **30 días de uso** (María, paciente; Juan, acompañante que ve y registra; Laura, acompañante que solo ve) |
 | Consentimiento | Aviso de privacidad y, por separado, la participación opcional en investigación |
 | Hoy | Próxima dosis, "Ya la tomé" con deshacer, ánimo del día y avance |
 | Registro de dosis | Tomada, tomada tarde o no tomada con motivo |
