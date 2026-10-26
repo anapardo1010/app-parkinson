@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "App Parkinson (demo)",
+    "slug": "app-parkinson",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F9F5EB",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F9F5EB"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#D63F45"
+        }
+      ]
+    ],
+    "scheme": "appparkinson",
+    "backgroundColor": "#F9F5EB",
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "codigo": "sintomas-semanal",
+  "nombre": "Sus síntomas esta semana",
+  "version": 1,
+  "tipo": "sintomas",
+  "frecuencia": "semanal",
+  "quienResponde": "paciente_o_acompanante",
+  "licencia": null,
+  "provisional": true,
+  "nota": "EJEMPLO PROVISIONAL. Qué síntomas se registran, con qué escala y cada cuánto lo definirá el neurólogo.",
+  "preguntas": [
+    { "texto": "Temblor", "tipoRespuesta": "escala", "minimo": 0, "maximo": 4, "etiquetaMinimo": "Nada", "etiquetaMaximo": "Mucho" },
+    { "texto": "Rigidez", "tipoRespuesta": "escala", "minimo": 0, "maximo": 4, "etiquetaMinimo": "Nada", "etiquetaMaximo": "Mucho" },
+    { "texto": "Lentitud al moverse", "tipoRespuesta": "escala", "minimo": 0, "maximo": 4, "etiquetaMinimo": "Nada", "etiquetaMaximo": "Mucho" },
+    { "texto": "Problemas de equilibrio", "tipoRespuesta": "escala", "minimo": 0, "maximo": 4, "etiquetaMinimo": "Nada", "etiquetaMaximo": "Mucho" },
+    {
+      "texto": "¿Tuvo alguna caída esta semana?",
+      "tipoRespuesta": "opcion",
+      "opciones": [
+        { "etiqueta": "No", "valor": 0 },
+        { "etiqueta": "Sí, una", "valor": 1 },
+        { "etiqueta": "Sí, más de una", "valor": 2 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "codigo": "perfil-inicial",
+  "nombre": "Conocerle mejor",
+  "version": 1,
+  "tipo": "perfil",
+  "frecuencia": "una_vez",
+  "quienResponde": "paciente_o_acompanante",
+  "licencia": null,
+  "provisional": true,
+  "nota": "EJEMPLO PROVISIONAL. Las preguntas finales las definirá el equipo con el neurólogo.",
+  "preguntas": [
+    {
+      "texto": "¿Hace cuánto tiempo recibió el diagnóstico?",
+      "tipoRespuesta": "opcion",
+      "opciones": [
+        { "etiqueta": "Menos de 1 año", "valor": 0 },
+        { "etiqueta": "De 1 a 5 años", "valor": 1 },
+        { "etiqueta": "Más de 5 años", "valor": 2 },
+        { "etiqueta": "Prefiero no decir", "valor": null }
+      ]
+    },
+    {
+      "texto": "¿Quién le ayuda con su tratamiento?",
+      "tipoRespuesta": "opcion",
+      "opciones": [
+        { "etiqueta": "Lo llevo yo", "valor": 0 },
+        { "etiqueta": "Un familiar", "valor": 1 },
+        { "etiqueta": "Una persona cuidadora", "valor": 2 }
+      ]
+    },
+    {
+      "texto": "¿Cuántas veces al día toma medicamento para el Parkinson?",
+      "tipoRespuesta": "opcion",
+      "opciones": [
+        { "etiqueta": "1 o 2", "valor": 1 },
+        { "etiqueta": "3 o 4", "valor": 3 },
+        { "etiqueta": "5 o más", "valor": 5 }
+      ]
+    }
+  ]
+}

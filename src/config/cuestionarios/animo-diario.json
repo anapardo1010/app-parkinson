@@ -1,0 +1,21 @@
+{
+  "codigo": "animo-diario",
+  "nombre": "¿Cómo se siente hoy?",
+  "version": 1,
+  "tipo": "animo",
+  "frecuencia": "diaria",
+  "quienResponde": "paciente_o_acompanante",
+  "licencia": null,
+  "provisional": true,
+  "nota": "EJEMPLO PROVISIONAL. Lo definirán el neurólogo y el psicólogo. Este registro rápido es para el usuario y no tiene valor clínico.",
+  "preguntas": [
+    {
+      "texto": "¿Cómo se siente hoy?",
+      "tipoRespuesta": "escala",
+      "minimo": 1,
+      "maximo": 5,
+      "etiquetaMinimo": "Mal",
+      "etiquetaMaximo": "Muy bien"
+    }
+  ]
+}
