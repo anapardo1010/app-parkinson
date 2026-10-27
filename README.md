@@ -12,6 +12,7 @@ Demo de la app de seguimiento y divulgación sobre Parkinson. Funciona **solo en
 
    ```bash
    npm install
+   npx expo login -- iniciar sesion de ser necesario
    npx expo start
    ```
 
