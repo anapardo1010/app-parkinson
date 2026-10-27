@@ -5,10 +5,75 @@ Demo de la app de seguimiento y divulgación sobre Parkinson. Funciona **solo en
 
 > Ningún dato de esta demo corresponde a una persona real.
 
+## Instalar Node 20
+
+Primero revisa si ya lo tienes. Abre la terminal y escribe:
+
+```bash
+node -v
+```
+
+Si aparece `v20.x.x` o un número mayor, ya puedes pasar a la siguiente sección.
+
+### En Mac (con nvm)
+
+1. Abre la app **Terminal**.
+2. Instala nvm (administrador de versiones de Node):
+
+   ```bash
+   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+   ```
+
+3. Cierra la terminal y ábrela de nuevo.
+4. Instala y activa Node 20:
+
+   ```bash
+   nvm install 20
+   nvm use 20
+   nvm alias default 20
+   ```
+
+5. Comprueba la instalación:
+
+   ```bash
+   node -v
+   npm -v
+   ```
+
+> Si ya usas Homebrew, otra opción es: `brew install node@20` y luego
+> `brew link --overwrite --force node@20`.
+
+### En Windows (con winget)
+
+1. Abre **PowerShell** (búscalo en el menú Inicio).
+2. Instala Node 20:
+
+   ```powershell
+   winget install OpenJS.NodeJS --version 20.18.0
+   ```
+
+   Si quieres la versión 20 más reciente, revisa las disponibles con
+   `winget show OpenJS.NodeJS --versions`.
+
+3. Cierra PowerShell y ábrelo de nuevo.
+4. Comprueba la instalación:
+
+   ```powershell
+   node -v
+   npm -v
+   ```
+
+> Si necesitas cambiar entre versiones de Node, usa **nvm-windows**:
+> `winget install CoreyButler.NVMforWindows`, cierra y abre PowerShell, y luego
+> `nvm install 20` y `nvm use 20`.
+
+> Si PowerShell bloquea `npm` o `npx` con un error de "ejecución de scripts", ejecuta
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` y responde `S`.
+
 ## Cómo verla en tu celular
 
 1. Instala **Expo Go** desde App Store o Google Play (versión para SDK 58).
-2. En tu computadora, con Node 20 o superior:
+2. En tu computadora, con Node 20 o superior (ver la sección anterior):
 
    ```bash
    npm install
